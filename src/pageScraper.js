@@ -6,17 +6,28 @@ const Promise = require('bluebird')
 
 const scraperObject = {
     url: 'https://twitter.com/login',
+    host: 'https://twitter.com',
+    exploreUrl: 'https://twitter.com/explore',
     async scrape(browser, string, mode) {
         const startTime = new Date()
         let page = await browser.newPage()
 
+        await page.goto(this.exploreUrl, {waitUntil: 'networkidle2'})
+
         // Logging in
-        await this.logIn(page)
+        // await this.logIn(page)
+
+        // Check for reCaptcha
+        // await this.isRecaptcha(page)
+        // await page.screenshot({ path: './screenshots/screenshot.png' })
+
+        // await page.waitForSelector('input[role="combobox"]')
+        // await page.type('input[role="combobox"]', string, {delay: config.typingDelay})
+        // await page.keyboard.press('Enter')
 
         // Enter query string
-        await page.waitForSelector('input[role="combobox"]')
-        await page.type('input[role="combobox"]', string, {delay: config.typingDelay})
-        await page.keyboard.press('Enter')
+        const queryUrl = this.host + '/search?q=' + this.stringFormater(string) + '&src=typed_query'
+        await page.goto(queryUrl, {waitUntil: 'networkidle2'})
 
         let tweetsList = []
         let filename
@@ -31,7 +42,7 @@ const scraperObject = {
             console.log(urls)
             console.log(`Accounts scraped: ${urls.length}`)
             
-            const testUrls = urls.slice(0, 50)
+            const testUrls = urls.slice(0, 10)
 
             // Scraping tweets
             tweetsList = await Promise.map(testUrls, async url => {
@@ -42,8 +53,7 @@ const scraperObject = {
 
         } else if (mode === 'last') {
             // Scraping tweets from "Last"
-            const data = await this.scrapeFeed(page, 300)
-            tweetsList.push({'tweets': data, 'tweetsNumber': data.length})
+            tweetsList = await this.scrapeFeed(page, 400)
             filename = config.lastModeFileName
         }
         
@@ -63,6 +73,10 @@ const scraperObject = {
         console.log(`End: ${endTime.getHours()}:${endTime.getMinutes()}:${endTime.getSeconds()}`)
         console.log(`Time elapsed: ${(endTime-startTime)/1000} sec.`)
     },
+    stringFormater(str) {
+        const words = str.split(' ')
+        return words.length === 1 ? str : words.join('%20')
+    },
     async logIn(page) {
         console.log('Start logging in')
 
@@ -76,6 +90,23 @@ const scraperObject = {
 
         await page.waitForTimeout(2000)
         console.log('End logging in')
+    },
+    async isRecaptcha(page) {
+        let url = await page.url()
+        if (url === 'https://twitter.com/account/access') {
+            console.log('Solving reCaptcha...')
+            await page.waitForSelector('input[type="submit"]')
+            await page.click('input[type="submit"]')
+
+            await page.waitForSelector('div.recaptcha-checkbox-border')
+            await page.click('div.recaptcha-checkbox-border')
+            
+            await page.waitForSelector('#continue_button')
+            await page.click('#continue_button')
+
+            await page.waitForSelector('input[type="submit"]')
+            await page.click('input[type="submit"]')
+        }  
     },
     async getAccounts(page, accountsNumber) {
         // Chose "People" section
