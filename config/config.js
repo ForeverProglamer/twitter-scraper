@@ -1,5 +1,5 @@
-const login = 'ouellebec'
-const password = 'D3sU8iZ59kXgx67'
+const login = 'login'
+const password = 'password'
 const concurrency = 5
 const stringToFind = 'covid'
 const mode1 = 'accounts'
